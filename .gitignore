@@ -1,0 +1,6 @@
+node_modules/
+data/
+uploads/
+.env
+_server.log
+_server_err.log

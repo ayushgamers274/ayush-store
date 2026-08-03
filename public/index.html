@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ayush | Projects</title>
+  <meta name="theme-color" content="#05060a" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' fill='%23ffffff' font-family='Arial' font-weight='bold' x='18'>A</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <div class="cursor-dot" id="cursorDot"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+  <div class="aurora">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#/" class="logo" id="logoLink">ayush<span>.</span></a>
+      <div class="nav-links" id="navLinks">
+        <a href="#/" class="nav-link" data-nav="/">Home</a>
+        <a href="#/store" class="nav-link" data-nav="/store">Store</a>
+      </div>
+      <div class="nav-actions">
+        <div class="nav-auth" id="navAuth"></div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <svg class="icon-sun" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path stroke-linecap="round" d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+          <svg class="icon-moon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path>
+          </svg>
+        </button>
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+    <div class="mobile-menu" id="mobileMenu"></div>
+  </nav>
+
+  <main id="app"></main>
+
+  <div class="chat-wrap" id="chatWrap">
+    <button class="chat-toggle" id="chatToggle" aria-label="Open chat">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h8m-8 4h5m-9 6l2.6-2.6A10 10 0 1 1 21 11a10 10 0 0 1-6.6 9.4"></path>
+      </svg>
+      <span class="chat-dot"></span>
+    </button>
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-head">
+        <div>
+          <strong>Chat with Ayush</strong>
+          <span class="chat-sub" id="chatSub">Say hi — I reply when I can</span>
+        </div>
+        <button class="chat-close" id="chatClose" aria-label="Close chat">×</button>
+      </div>
+      <div class="chat-body" id="chatBody"></div>
+      <div class="chat-input-row">
+        <input id="chatName" class="chat-name" placeholder="Your name" maxlength="40" autocomplete="off" />
+        <div class="chat-send-row">
+          <input id="chatText" class="chat-text" placeholder="Type a message..." maxlength="2000" autocomplete="off" />
+          <button class="chat-send" id="chatSend" aria-label="Send">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalBox"></div>
+  </div>
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p class="footer-text">© <span id="year"></span> <span id="footerName">Ayush</span> — built with care.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
