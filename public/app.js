@@ -79,8 +79,17 @@
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/admin/projects');
       xhr.withCredentials = true;
+      var lastT = 0, lastB = 0, speed = 0, lastPct = 0, total = 0;
       xhr.upload.onprogress = function (e) {
-        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+        if (!e.lengthComputable) return;
+        total = e.total;
+        var now = Date.now();
+        if (lastT && now - lastT > 700) {
+          speed = Math.round((e.loaded - lastB) / ((now - lastT) / 1000) / 1024);
+          lastT = now; lastB = e.loaded;
+        } else if (!lastT) { lastT = now; lastB = e.loaded; }
+        lastPct = Math.round((e.loaded / e.total) * 100);
+        if (onProgress) onProgress(lastPct, e.loaded, e.total, speed);
       };
       xhr.onload = function () {
         var d = null;
@@ -1197,9 +1206,13 @@
         btn.textContent = 'Uploading...';
         var barWrap = $('#uploadProgress'), bar = $('#uploadBar'), pct = $('#uploadPct');
         if (barWrap) barWrap.style.display = 'flex';
-        uploadProject(new FormData(f), function (p) {
+        uploadProject(new FormData(f), function (p, loaded, total, speed) {
           if (bar) bar.style.width = p + '%';
-          if (pct) pct.textContent = p + '%';
+          if (pct) {
+            if (p >= 100) { pct.textContent = '100% — Saving to database...'; return; }
+            var sizeTxt = total ? fmtSize(loaded) + ' / ' + fmtSize(total) : '';
+            pct.textContent = p + '%' + (sizeTxt ? ' (' + sizeTxt + (speed ? ', ' + speed + ' KB/s' : '') + ')' : '');
+          }
         }).then(function () {
           toast('Project uploaded!', 'ok');
           return api('/api/projects').then(function (rows) { state.projects = rows; });

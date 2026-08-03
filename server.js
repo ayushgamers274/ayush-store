@@ -455,7 +455,10 @@ app.post('/api/admin/projects', requireAdmin, (req, res) => {
 
   upload(req, res, async (err) => {
     try {
-      if (err) return res.status(400).json({ error: err.message });
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'File too large — max 100 MB. Bade files ke liye storage upgrade chahiye.' });
+        return res.status(400).json({ error: err.message });
+      }
       const file = req.files && req.files.file && req.files.file[0];
       if (!file) return res.status(400).json({ error: 'No file uploaded' });
       let image = null;
