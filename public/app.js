@@ -671,7 +671,7 @@
           '<div class="field"><label>Tags (comma separated)</label><input name="tags" placeholder="react, node, api" maxlength="200" /></div>' +
           '<div class="file-drop">' +
             '<input type="file" name="file" required />' +
-            '<b>Click to choose project file</b><br />Any file type, up to 300 MB. Members download this after access is unlocked.' +
+            '<b>Click to choose project file</b><br />Any file type, up to 100 MB. Members download this after access is unlocked.' +
           '</div>' +
           '<button class="btn btn-primary btn-block" style="margin-top:1.5rem" type="submit">Upload project</button>' +
         '</form>' +

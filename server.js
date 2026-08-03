@@ -5,16 +5,9 @@ const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
-const { DatabaseSync } = require('node:sqlite');
+const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT) || 3000;
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'app.db');
-
-for (const dir of [UPLOAD_DIR, DATA_DIR]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
 
 const env = {};
 if (fs.existsSync(path.join(__dirname, '.env'))) {
@@ -24,57 +17,85 @@ if (fs.existsSync(path.join(__dirname, '.env'))) {
   });
 }
 
-const db = new DatabaseSync(DB_PATH);
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL,
-    price INTEGER NOT NULL DEFAULT 0,
-    category TEXT NOT NULL DEFAULT 'web',
-    tags TEXT NOT NULL DEFAULT '',
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    size INTEGER NOT NULL DEFAULT 0,
-    downloads INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    razorpay_order_id TEXT,
-    project_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    amount INTEGER NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'INR',
-    status TEXT NOT NULL DEFAULT 'created',
-    payment_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user',
-    text TEXT NOT NULL,
-    is_bot INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`);
-try { db.exec('ALTER TABLE messages ADD COLUMN is_bot INTEGER NOT NULL DEFAULT 0'); } catch (e) {}
+const connectionString = env.DATABASE_URL || process.env.DATABASE_URL || 'postgres://postgres@localhost:5433/app';
+const dbUrl = new URL(connectionString);
+const pool = new Pool({
+  connectionString,
+  ssl: (dbUrl.hostname !== 'localhost' && dbUrl.hostname !== '127.0.0.1') ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000
+});
+pool.on('error', (err) => {
+  console.error('Postgres pool error:', err.message);
+});
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      price INTEGER NOT NULL DEFAULT 0,
+      category TEXT NOT NULL DEFAULT 'web',
+      tags TEXT NOT NULL DEFAULT '',
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      downloads INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      file_data BYTEA
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      status TEXT NOT NULL DEFAULT 'created',
+      payment_id TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      text TEXT NOT NULL,
+      is_bot INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders (user_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions (token)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_messages_id ON messages (id)');
+}
 
 const DEFAULT_SETTINGS = {
   site_name: 'Ayush',
@@ -89,15 +110,26 @@ const DEFAULT_SETTINGS = {
   upi_id: '',
   upi_name: 'Ayush'
 };
-{
-  const stmt = db.prepare('SELECT COUNT(*) AS n FROM settings');
-  if (stmt.get().n === 0) {
-    const ins = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) ins.run(k, v);
+
+async function seedDefaults() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM settings');
+  if (rows[0].n === 0) {
+    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
+      await pool.query('INSERT INTO settings (key, value) VALUES ($1, $2)', [k, v]);
+    }
+  }
+  const admins = await pool.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+  if (admins.rows.length === 0) {
+    const email = String(env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@ayush.dev').trim().toLowerCase();
+    const pass = env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
+    const hash = bcrypt.hashSync(pass, 10);
+    await pool.query("INSERT INTO users (name, email, password, role) VALUES ('Ayush', $1, $2, 'admin')", [email, hash]);
+    console.log(`  Admin created: ${email} / ${(env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD) ? '(from env)' : pass}`);
   }
 }
-function getSettings(includeSecrets) {
-  const rows = db.prepare('SELECT key, value FROM settings').all();
+
+async function getSettings(includeSecrets) {
+  const { rows } = await pool.query('SELECT key, value FROM settings');
   const s = { ...DEFAULT_SETTINGS };
   rows.forEach((r) => {
     if (!includeSecrets && r.key === 'upi_id') return;
@@ -107,17 +139,10 @@ function getSettings(includeSecrets) {
   return s;
 }
 
-{
-  const admin = db.prepare("SELECT id FROM users WHERE role = 'admin'").get();
-  if (!admin) {
-    const email = String(process.env.ADMIN_EMAIL || 'admin@ayush.dev').trim().toLowerCase();
-    const pass = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
-    db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')").run('Ayush', email, bcrypt.hashSync(pass, 10));
-    console.log(`  Admin created: ${email} / ${process.env.ADMIN_PASSWORD ? '(from env)' : pass}`);
-  }
-}
 const app = express();
 app.use(express.json({ limit: '1mb' }));
+
+const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 function cookieToken(req) {
   const raw = req.headers.cookie || '';
@@ -125,24 +150,30 @@ function cookieToken(req) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function getUserByToken(req) {
+async function getUserByToken(req) {
   const token = cookieToken(req);
   if (!token) return null;
-  return db.prepare(`SELECT u.id, u.name, u.email, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`).get(token) || null;
+  const { rows } = await pool.query(
+    'SELECT u.id, u.name, u.email, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1',
+    [token]
+  );
+  return rows[0] || null;
 }
 
 function requireAuth(req, res, next) {
-  const user = getUserByToken(req);
-  if (!user) return res.status(401).json({ error: 'Please log in first' });
-  req.user = user;
-  next();
+  getUserByToken(req).then((user) => {
+    if (!user) return res.status(401).json({ error: 'Please log in first' });
+    req.user = user;
+    next();
+  }).catch(next);
 }
 
 function requireAdmin(req, res, next) {
-  const user = getUserByToken(req);
-  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  req.user = user;
-  next();
+  getUserByToken(req).then((user) => {
+    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    req.user = user;
+    next();
+  }).catch(next);
 }
 
 function setTokenCookie(res, token) {
@@ -166,155 +197,163 @@ function publicProject(row) {
 
 /* ---------------- auth ---------------- */
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', h(async (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 60);
   const email = String(req.body.email || '').trim().toLowerCase().slice(0, 120);
   const password = String(req.body.password || '');
   if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email address' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
-    return res.status(409).json({ error: 'An account with this email already exists' });
-  }
+  const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+  if (exists.rows.length) return res.status(409).json({ error: 'An account with this email already exists' });
   const hash = bcrypt.hashSync(password, 10);
-  const info = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(name, email, hash);
+  const inserted = await pool.query('INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id', [name, email, hash]);
+  const id = Number(inserted.rows[0].id);
   const token = crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, Number(info.lastInsertRowid));
+  await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, id]);
   setTokenCookie(res, token);
-  res.json({ user: { id: Number(info.lastInsertRowid), name, email, role: 'user' } });
-});
+  res.json({ user: { id, name, email, role: 'user' } });
+}));
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', h(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  const user = rows[0];
   if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(401).json({ error: 'Wrong email or password' });
   }
   const token = crypto.randomBytes(32).toString('hex');
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
+  await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
   setTokenCookie(res, token);
   res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-});
+}));
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', h(async (req, res) => {
   const token = cookieToken(req);
-  if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  if (token) await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
   res.setHeader('Set-Cookie', 'token=; HttpOnly; Path=/; Max-Age=0');
   res.json({ ok: true });
-});
+}));
 
-app.get('/api/me', (req, res) => {
-  const user = getUserByToken(req);
+app.get('/api/me', h(async (req, res) => {
+  const user = await getUserByToken(req);
   if (!user) return res.json({ user: null });
   res.json({ user });
-});
+}));
 
 /* ---------------- public ---------------- */
 
-app.get('/api/settings', (req, res) => {
-  const s = getSettings(false);
+app.get('/api/settings', h(async (req, res) => {
+  const s = await getSettings(false);
   s.hero_words = JSON.parse(s.hero_words || '[]');
   res.json(s);
-});
+}));
 
-app.get('/api/admin/settings', requireAdmin, (req, res) => {
-  const s = getSettings(true);
+app.get('/api/admin/settings', requireAdmin, h(async (req, res) => {
+  const s = await getSettings(true);
   s.hero_words = JSON.parse(s.hero_words || '[]');
   res.json(s);
-});
+}));
 
-app.get('/api/projects', (req, res) => {
-  const rows = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all();
+app.get('/api/projects', h(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
   res.json(rows.map(publicProject));
-});
+}));
 
-app.get('/api/projects/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(req.params.id));
-  if (!row) return res.status(404).json({ error: 'Project not found' });
-  res.json(publicProject(row));
-});
+app.get('/api/projects/:id', h(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM projects WHERE id = $1', [Number(req.params.id)]);
+  if (!rows.length) return res.status(404).json({ error: 'Project not found' });
+  res.json(publicProject(rows[0]));
+}));
 
-app.get('/api/me/owned', requireAuth, (req, res) => {
-  const rows = db.prepare("SELECT project_id FROM orders WHERE user_id = ? AND status = 'paid'").all(req.user.id);
+app.get('/api/me/owned', requireAuth, h(async (req, res) => {
+  const { rows } = await pool.query("SELECT project_id FROM orders WHERE user_id = $1 AND status = 'paid'", [req.user.id]);
   res.json(rows.map((r) => r.project_id));
-});
+}));
 
-app.get('/api/me/orders', requireAuth, (req, res) => {
-  const rows = db.prepare(`
+app.get('/api/me/orders', requireAuth, h(async (req, res) => {
+  const { rows } = await pool.query(`
     SELECT o.id, o.project_id, o.amount, o.currency, o.status, o.payment_id, o.created_at, p.title, p.price AS project_price, p.category
     FROM orders o JOIN projects p ON p.id = o.project_id
-    WHERE o.user_id = ? ORDER BY o.id DESC LIMIT 100
-  `).all(req.user.id);
+    WHERE o.user_id = $1 ORDER BY o.id DESC LIMIT 100
+  `, [req.user.id]);
   res.json(rows);
-});
+}));
 
-app.get('/api/admin/payments/status', requireAdmin, (req, res) => {
-  const s = getSettings(true);
+app.get('/api/admin/payments/status', requireAdmin, h(async (req, res) => {
+  const s = await getSettings(true);
   const upiId = (s.upi_id || '').trim();
   res.json({ configured: !!upiId, upiId });
-});
+}));
 
 /* ---------------- downloads ---------------- */
 
-app.get('/api/download/:id', requireAuth, (req, res) => {
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(req.params.id));
+app.get('/api/download/:id', requireAuth, h(async (req, res) => {
+  const { rows } = await pool.query('SELECT id, title, original_name, price, file_data FROM projects WHERE id = $1', [Number(req.params.id)]);
+  const project = rows[0];
   if (!project) return res.status(404).json({ error: 'Project not found' });
   if (project.price > 0) {
-    const paid = db.prepare("SELECT id FROM orders WHERE project_id = ? AND user_id = ? AND status = 'paid'").get(project.id, req.user.id);
-    if (!paid) return res.status(403).json({ error: 'You need to buy this project first' });
+    const paid = await pool.query("SELECT id FROM orders WHERE project_id = $1 AND user_id = $2 AND status = 'paid'", [project.id, req.user.id]);
+    if (!paid.rows.length) return res.status(403).json({ error: 'You need to buy this project first' });
   }
-  const filePath = path.join(UPLOAD_DIR, project.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing on server' });
-  db.prepare('UPDATE projects SET downloads = downloads + 1 WHERE id = ?').run(project.id);
-  res.download(filePath, project.original_name);
-});
+  if (!project.file_data || !project.file_data.length) return res.status(404).json({ error: 'File missing on server' });
+  await pool.query('UPDATE projects SET downloads = downloads + 1 WHERE id = $1', [project.id]);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Length', project.file_data.length);
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(project.original_name)}`);
+  res.end(project.file_data);
+}));
 
 /* ---------------- payments (UPI via FamPay / any UPI app) ---------------- */
 
-app.post('/api/orders', requireAuth, (req, res) => {
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(req.body.projectId));
+app.post('/api/orders', requireAuth, h(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM projects WHERE id = $1', [Number(req.body.projectId)]);
+  const project = rows[0];
   if (!project) return res.status(404).json({ error: 'Project not found' });
   if (project.price <= 0) return res.status(400).json({ error: 'This project is free — just download it' });
-  const existing = db.prepare("SELECT id FROM orders WHERE project_id = ? AND user_id = ? AND status = 'paid'").get(project.id, req.user.id);
-  if (existing) return res.json({ alreadyOwned: true });
-  const pending = db.prepare("SELECT id FROM orders WHERE project_id = ? AND user_id = ? AND status IN ('created','verify')").get(project.id, req.user.id);
-  if (pending) return res.json({ alreadyPending: true });
+  const existing = await pool.query("SELECT id FROM orders WHERE project_id = $1 AND user_id = $2 AND status = 'paid'", [project.id, req.user.id]);
+  if (existing.rows.length) return res.json({ alreadyOwned: true });
+  const pending = await pool.query("SELECT id FROM orders WHERE project_id = $1 AND user_id = $2 AND status IN ('created','verify')", [project.id, req.user.id]);
+  if (pending.rows.length) return res.json({ alreadyPending: true });
 
-  const s = getSettings(true);
+  const s = await getSettings(true);
   const upiId = (s.upi_id || '').trim();
   if (!upiId) return res.status(400).json({ error: 'Store owner has not set up UPI yet — message them in the chat' });
 
-  const info = db.prepare("INSERT INTO orders (project_id, user_id, amount, currency, status) VALUES (?, ?, ?, 'INR', 'created')").run(project.id, req.user.id, project.price);
+  const inserted = await pool.query("INSERT INTO orders (project_id, user_id, amount, currency, status) VALUES ($1, $2, $3, 'INR', 'created') RETURNING id", [project.id, req.user.id, project.price]);
+  const orderId = Number(inserted.rows[0].id);
   res.json({
-    orderId: Number(info.lastInsertRowid),
+    orderId,
     amount: project.price,
     projectTitle: project.title,
-    upi: { id: upiId, name: s.upi_name || '', orderId: Number(info.lastInsertRowid) }
+    upi: { id: upiId, name: s.upi_name || '', orderId }
   });
-});
+}));
 
-app.post('/api/orders/verify', requireAuth, (req, res) => {
+app.post('/api/orders/verify', requireAuth, h(async (req, res) => {
   const { orderId, utr } = req.body;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(orderId));
+  const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [Number(orderId)]);
+  const order = rows[0];
   if (!order) return res.status(404).json({ error: 'Order not found' });
   if (order.user_id !== req.user.id) return res.status(403).json({ error: 'Not your order' });
   if (order.status === 'paid') return res.json({ ok: true, alreadyOwned: true });
   const ref = String(utr || '').trim().slice(0, 80);
   if (!/^\d{10,16}$/.test(ref)) return res.status(400).json({ error: 'Invalid UTR — enter the 10-16 digit transaction number from your UPI app' });
-  const usedElsewhere = db.prepare("SELECT id FROM orders WHERE payment_id = ? AND id != ? AND status != 'rejected'").get(ref, order.id);
-  if (usedElsewhere) return res.status(400).json({ error: 'This UTR is already used on another order' });
-  db.prepare("UPDATE orders SET status = 'verify', payment_id = ? WHERE id = ?").run(ref, order.id);
+  const usedElsewhere = await pool.query("SELECT id FROM orders WHERE payment_id = $1 AND id != $2 AND status <> 'rejected'", [ref, order.id]);
+  if (usedElsewhere.rows.length) return res.status(400).json({ error: 'This UTR is already used on another order' });
+  await pool.query("UPDATE orders SET status = 'verify', payment_id = $1 WHERE id = $2", [ref, order.id]);
   res.json({ ok: true, status: 'verify' });
-});
+}));
 
-app.post('/api/orders/approve', requireAdmin, (req, res) => {
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(req.body.orderId));
+app.post('/api/orders/approve', requireAdmin, h(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM orders WHERE id = $1', [Number(req.body.orderId)]);
+  const order = rows[0];
   if (!order) return res.status(404).json({ error: 'Order not found' });
   const approve = req.body.approve !== false;
-  db.prepare("UPDATE orders SET status = ? WHERE id = ?").run(approve ? 'paid' : 'rejected', order.id);
+  await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [approve ? 'paid' : 'rejected', order.id]);
   res.json({ ok: true, status: approve ? 'paid' : 'rejected' });
-});
+}));
 
 /* ---------------- chat ---------------- */
 
@@ -322,11 +361,11 @@ function projectLine(p) {
   return p.price > 0 ? `${p.title} — Rs ${p.price} (premium)` : `${p.title} — free`;
 }
 
-function botReply(text, name) {
+async function botReply(text, name) {
   const t = text.toLowerCase();
-  const s = getSettings(false);
+  const s = await getSettings(false);
   const site = s.site_name || 'Ayush';
-  const projects = db.prepare('SELECT id, title, price, category FROM projects ORDER BY created_at DESC').all();
+  const { rows: projects } = await pool.query('SELECT id, title, price, category FROM projects ORDER BY created_at DESC');
   const freeList = projects.filter((p) => p.price === 0);
   const paidList = projects.filter((p) => p.price > 0);
   const email = s.email || '';
@@ -378,105 +417,101 @@ function botReply(text, name) {
   return 'I am not sure about that one. Try asking about projects, prices, downloads, payments (UPI), login, or custom work.';
 }
 
-app.get('/api/messages', (req, res) => {
+app.get('/api/messages', h(async (req, res) => {
   const after = Number(req.query.after) || 0;
-  const rows = db.prepare('SELECT * FROM messages WHERE id > ? ORDER BY id ASC LIMIT 200').all(after);
+  const { rows } = await pool.query('SELECT * FROM messages WHERE id > $1 ORDER BY id ASC LIMIT 200', [after]);
   res.json(rows);
-});
+}));
 
-app.post('/api/messages', (req, res) => {
+app.post('/api/messages', h(async (req, res) => {
   const name = String(req.body.name || 'Guest').trim().slice(0, 60);
   const text = String(req.body.text || '').trim().slice(0, 2000);
   if (!text) return res.status(400).json({ error: 'Message is empty' });
-  const info = db.prepare("INSERT INTO messages (name, role, text, is_bot) VALUES (?, 'user', ?, 0)").run(name, text);
-  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(Number(info.lastInsertRowid));
-  const reply = botReply(text, name || 'friend');
-  db.prepare("INSERT INTO messages (name, role, text, is_bot) VALUES (?, 'admin', ?, 1)").run('Bot', reply);
+  const inserted = await pool.query("INSERT INTO messages (name, role, text, is_bot) VALUES ($1, 'user', $2, 0) RETURNING *", [name, text]);
+  const msg = inserted.rows[0];
+  const reply = await botReply(text, name || 'friend');
+  await pool.query("INSERT INTO messages (name, role, text, is_bot) VALUES ('Bot', 'admin', $1, 1)", [reply]);
   res.json(msg);
-});
+}));
 
 /* ---------------- admin ---------------- */
 
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const projects = db.prepare('SELECT COUNT(*) AS n FROM projects').get().n;
-  const members = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'user'").get().n;
-  const paidOrders = db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM orders WHERE status = 'paid'").get();
-  const messages = db.prepare('SELECT COUNT(*) AS n FROM messages').get().n;
-  res.json({ projects, members, orders: paidOrders.n, revenue: paidOrders.total, messages });
-});
+app.get('/api/admin/stats', requireAdmin, h(async (req, res) => {
+  const projects = await pool.query('SELECT COUNT(*)::int AS n FROM projects');
+  const members = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE role = 'user'");
+  const paidOrders = await pool.query("SELECT COUNT(*)::int AS n, COALESCE(SUM(amount), 0)::int AS total FROM orders WHERE status = 'paid'");
+  const messages = await pool.query('SELECT COUNT(*)::int AS n FROM messages');
+  res.json({ projects: projects.rows[0].n, members: members.rows[0].n, orders: paidOrders.rows[0].n, revenue: paidOrders.rows[0].total, messages: messages.rows[0].n });
+}));
 
 app.post('/api/admin/projects', requireAdmin, (req, res) => {
-  const storage = multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '').replace(/[^.\w]/g, '').slice(0, 12);
-      cb(null, `${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`);
-    }
-  });
   const upload = multer({
-    storage,
-    limits: { fileSize: 300 * 1024 * 1024 }
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 }
   }).single('file');
 
-  upload(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const title = String(req.body.title || '').trim().slice(0, 100);
-    const description = String(req.body.description || '').trim().slice(0, 3000);
-    const price = Math.max(0, Math.round(Number(req.body.price) || 0));
-    const category = String(req.body.category || 'web').trim().slice(0, 40);
-    const tags = String(req.body.tags || '').trim().slice(0, 200);
-    if (!title || !description) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: 'Title and description are required' });
+  upload(req, res, async (err) => {
+    try {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const title = String(req.body.title || '').trim().slice(0, 100);
+      const description = String(req.body.description || '').trim().slice(0, 3000);
+      const price = Math.max(0, Math.round(Number(req.body.price) || 0));
+      const category = String(req.body.category || 'web').trim().slice(0, 40);
+      const tags = String(req.body.tags || '').trim().slice(0, 200);
+      if (!title || !description) return res.status(400).json({ error: 'Title and description are required' });
+      const inserted = await pool.query(
+        'INSERT INTO projects (title, description, price, category, tags, filename, original_name, size, file_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+        [title, description, price, category, tags, req.file.originalname || 'file', req.file.originalname, req.file.size, req.file.buffer]
+      );
+      res.json({ ok: true, id: Number(inserted.rows[0].id) });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
-    const info = db.prepare('INSERT INTO projects (title, description, price, category, tags, filename, original_name, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(title, description, price, category, tags, req.file.filename, req.file.originalname, req.file.size);
-    res.json({ ok: true, id: Number(info.lastInsertRowid) });
   });
 });
 
-app.delete('/api/admin/projects/:id', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(Number(req.params.id));
-  if (!row) return res.status(404).json({ error: 'Project not found' });
-  const filePath = path.join(UPLOAD_DIR, row.filename);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  db.prepare('DELETE FROM projects WHERE id = ?').run(row.id);
+app.delete('/api/admin/projects/:id', requireAdmin, h(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM projects WHERE id = $1', [Number(req.params.id)]);
+  if (!rows.length) return res.status(404).json({ error: 'Project not found' });
+  await pool.query('DELETE FROM projects WHERE id = $1', [rows[0].id]);
   res.json({ ok: true });
-});
+}));
 
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  const rows = db.prepare(`
+app.get('/api/admin/orders', requireAdmin, h(async (req, res) => {
+  const { rows } = await pool.query(`
     SELECT o.*, p.title AS project_title, u.name AS user_name, u.email AS user_email
     FROM orders o JOIN projects p ON p.id = o.project_id JOIN users u ON u.id = o.user_id
     ORDER BY o.id DESC LIMIT 200
-  `).all();
+  `);
   res.json(rows);
-});
+}));
 
-app.get('/api/admin/members', requireAdmin, (req, res) => {
-  const rows = db.prepare("SELECT id, name, email, created_at FROM users WHERE role = 'user' ORDER BY id DESC LIMIT 200").all();
+app.get('/api/admin/members', requireAdmin, h(async (req, res) => {
+  const { rows } = await pool.query("SELECT id, name, email, created_at FROM users WHERE role = 'user' ORDER BY id DESC LIMIT 200");
   res.json(rows);
-});
+}));
 
-app.post('/api/admin/messages', requireAdmin, (req, res) => {
+app.post('/api/admin/messages', requireAdmin, h(async (req, res) => {
   const text = String(req.body.text || '').trim().slice(0, 2000);
   if (!text) return res.status(400).json({ error: 'Message is empty' });
-  const info = db.prepare("INSERT INTO messages (name, role, text) VALUES (?, 'admin', ?)").run('Ayush', text);
-  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(Number(info.lastInsertRowid));
-  res.json(msg);
-});
+  const inserted = await pool.query("INSERT INTO messages (name, role, text) VALUES ('Ayush', 'admin', $1) RETURNING *", [text]);
+  res.json(inserted.rows[0]);
+}));
 
-app.put('/api/admin/settings', requireAdmin, (req, res) => {
+app.put('/api/admin/settings', requireAdmin, h(async (req, res) => {
   const allowed = ['site_name', 'tagline', 'bio', 'email', 'github', 'linkedin', 'x', 'instagram', 'hero_words', 'upi_id', 'upi_name'];
-  const stmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   for (const key of allowed) {
     if (typeof req.body[key] === 'string' || Array.isArray(req.body[key])) {
-      stmt.run(key, Array.isArray(req.body[key]) ? JSON.stringify(req.body[key]) : req.body[key].slice(0, 3000));
+      const value = Array.isArray(req.body[key]) ? JSON.stringify(req.body[key]) : req.body[key].slice(0, 3000);
+      await pool.query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+        [key, value]
+      );
     }
   }
   res.json({ ok: true });
-});
+}));
 
 /* ---------------- static ---------------- */
 
@@ -490,11 +525,23 @@ app.use((err, req, res, next) => {
   res.status(err.status || err.statusCode || 500).json({ error: err.type === 'entity.parse.failed' ? 'Invalid JSON body' : (err.message || 'Server error') });
 });
 
-const server = http.createServer(app);
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('');
-  console.log('  Ayush project store running:');
-  console.log(`  -> http://localhost:${PORT}`);
-  console.log(`  -> Admin panel: http://localhost:${PORT}/#/admin`);
-  console.log('');
+initDb().then(async () => {
+  await seedDefaults();
+  const server = http.createServer(app);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('');
+    console.log('  Ayush project store running:');
+    console.log(`  -> http://localhost:${PORT}`);
+    console.log(`  -> Admin panel: http://localhost:${PORT}/#/admin`);
+    console.log('');
+  });
+  const shutdown = () => {
+    server.close(() => pool.end().then(() => process.exit(0)));
+    setTimeout(() => process.exit(0), 3000).unref();
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}).catch((err) => {
+  console.error('Failed to init database:', err.message);
+  process.exit(1);
 });
