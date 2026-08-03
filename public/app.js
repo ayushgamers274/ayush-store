@@ -2,6 +2,15 @@
   'use strict';
 
   function safe(fn) { try { fn(); } catch (e) {} }
+  window.addEventListener('error', function (e) {
+    var loc = '';
+    if (e.filename) {
+      var f = String(e.filename).split('/').pop();
+      loc = ' @ ' + f + ':' + e.lineno + ':' + e.colno;
+    }
+    console.error('page error', e.error || e.message);
+    try { toast('Page error' + loc + ': ' + String(e.message || 'unknown').slice(0, 120), 'err'); } catch (err) {}
+  });
   var $ = function (s, p) { return (p || document).querySelector(s); };
   var $$ = function (s, p) { return Array.prototype.slice.call((p || document).querySelectorAll(s)); };
   var app = $('#app');
