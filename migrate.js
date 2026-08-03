@@ -36,7 +36,7 @@ const pool = new Pool({
   await pool.query(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS projects (id SERIAL PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, price INTEGER NOT NULL DEFAULT 0, category TEXT NOT NULL DEFAULT 'web', tags TEXT NOT NULL DEFAULT '', filename TEXT NOT NULL, original_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, downloads INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), file_data BYTEA)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS projects (id SERIAL PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, price INTEGER NOT NULL DEFAULT 0, category TEXT NOT NULL DEFAULT 'web', tags TEXT NOT NULL DEFAULT '', filename TEXT NOT NULL, original_name TEXT NOT NULL, size INTEGER NOT NULL DEFAULT 0, downloads INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), file_data BYTEA, image TEXT)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS orders (id SERIAL PRIMARY KEY, project_id INTEGER NOT NULL, user_id INTEGER NOT NULL, amount INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'INR', status TEXT NOT NULL DEFAULT 'created', payment_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', text TEXT NOT NULL, is_bot INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   const src = new DatabaseSync(DB_PATH, { readOnly: true });
@@ -64,8 +64,8 @@ const pool = new Pool({
     const filePath = path.join(UPLOAD_DIR, row.filename);
     const fileData = fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
     await pool.query(
-      'INSERT INTO projects (id, title, description, price, category, tags, filename, original_name, size, downloads, created_at, file_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (id) DO NOTHING',
-      [row.id, row.title, row.description, row.price, row.category, row.tags, row.filename, row.original_name, row.size, row.downloads, row.created_at, fileData]
+      'INSERT INTO projects (id, title, description, price, category, tags, filename, original_name, size, downloads, created_at, file_data, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT (id) DO NOTHING',
+      [row.id, row.title, row.description, row.price, row.category, row.tags, row.filename, row.original_name, row.size, row.downloads, row.created_at, fileData, row.image || null]
     );
     console.log(`  project ${row.id} (${row.title}): ${fileData ? (fileData.length + ' bytes') : 'NO FILE FOUND'}`);
   }

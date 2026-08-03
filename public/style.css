@@ -283,6 +283,12 @@ html.js .cursor-dot, html.js .cursor-ring { opacity: 1; }
 [data-theme="light"] .price-paid { color: var(--accent); }
 
 .card-meta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.project-img { width: 100%; height: 10rem; object-fit: cover; border-radius: .9rem; margin-bottom: 1rem; border: 1px solid var(--border); background: var(--card); }
+.upload-progress { display: none; align-items: center; gap: .7rem; margin-top: 1rem; }
+.upload-progress span { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); min-width: 2.6rem; text-align: right; }
+.upload-track { flex: 1; height: .5rem; border-radius: 9999px; background: var(--card); border: 1px solid var(--border); overflow: hidden; }
+.upload-bar { height: 100%; width: 0; border-radius: 9999px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); transition: width .2s ease; }
+
 .card-actions { margin-top: 1.4rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .card-dl { display: flex; align-items: center; gap: .4rem; font-family: var(--font-mono); font-size: .72rem; color: var(--dim); }
 

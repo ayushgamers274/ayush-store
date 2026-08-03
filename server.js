@@ -95,6 +95,7 @@ async function initDb() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders (user_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions (token)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_messages_id ON messages (id)');
+  await pool.query('ALTER TABLE projects ADD COLUMN IF NOT EXISTS image TEXT');
 }
 
 const DEFAULT_SETTINGS = {
@@ -192,6 +193,7 @@ function publicProject(row) {
     tags: (row.tags || '').split(',').filter(Boolean),
     size: row.size,
     downloads: row.downloads,
+    image: row.image || null,
     created_at: row.created_at
   };
 }
@@ -449,12 +451,19 @@ app.post('/api/admin/projects', requireAdmin, (req, res) => {
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 100 * 1024 * 1024 }
-  }).single('file');
+  }).fields([{ name: 'file', maxCount: 1 }, { name: 'image', maxCount: 1 }]);
 
   upload(req, res, async (err) => {
     try {
       if (err) return res.status(400).json({ error: err.message });
-      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const file = req.files && req.files.file && req.files.file[0];
+      if (!file) return res.status(400).json({ error: 'No file uploaded' });
+      let image = null;
+      const img = req.files && req.files.image && req.files.image[0];
+      if (img) {
+        if (img.size > 2 * 1024 * 1024) return res.status(400).json({ error: 'Image must be under 2 MB' });
+        image = `data:${img.mimetype};base64,${img.buffer.toString('base64')}`;
+      }
       const title = String(req.body.title || '').trim().slice(0, 100);
       const description = String(req.body.description || '').trim().slice(0, 3000);
       const price = Math.max(0, Math.round(Number(req.body.price) || 0));
@@ -462,8 +471,8 @@ app.post('/api/admin/projects', requireAdmin, (req, res) => {
       const tags = String(req.body.tags || '').trim().slice(0, 200);
       if (!title || !description) return res.status(400).json({ error: 'Title and description are required' });
       const inserted = await pool.query(
-        'INSERT INTO projects (title, description, price, category, tags, filename, original_name, size, file_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-        [title, description, price, category, tags, req.file.originalname || 'file', req.file.originalname, req.file.size, req.file.buffer]
+        'INSERT INTO projects (title, description, price, category, tags, filename, original_name, size, file_data, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+        [title, description, price, category, tags, file.originalname || 'file', file.originalname, file.size, file.buffer, image]
       );
       res.json({ ok: true, id: Number(inserted.rows[0].id) });
     } catch (e) {

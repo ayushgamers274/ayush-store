@@ -74,6 +74,25 @@
     });
   }
 
+  function uploadProject(form, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/admin/projects');
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = function () {
+        var d = null;
+        try { d = JSON.parse(xhr.responseText); } catch (e2) {}
+        if (xhr.status >= 200 && xhr.status < 300) resolve(d);
+        else reject(new Error((d && d.error) || 'Upload failed'));
+      };
+      xhr.onerror = function () { reject(new Error('Upload failed — check your connection')); };
+      xhr.send(form);
+    });
+  }
+
   function toast(msg, type) {
     var t = document.createElement('div');
     t.className = 'toast ' + (type || '');
@@ -375,9 +394,16 @@
     return out;
   }
 
+  function projectImage(p) {
+    return p.image
+      ? '<img class="project-img" src="' + p.image + '" alt="' + esc(p.title) + '" loading="lazy" onerror="this.style.display=\'none\'" />'
+      : '';
+  }
+
   function projectCard(p, cls) {
     var owned = state.user && state.owned.has(p.id);
     return '<a class="card reveal' + (cls ? ' ' + cls : '') + '" href="#/project/' + p.id + '" data-tilt>' +
+      projectImage(p) +
       '<div class="card-meta">' +
         '<span class="project-num">#' + String(p.id).padStart(2, '0') + ' · ' + esc(p.category) + '</span>' +
         '<span class="price-badge ' + (p.price > 0 ? 'price-paid' : 'price-free') + '">' + fmtPrice(p.price) + '</span>' +
@@ -536,6 +562,7 @@
     }
     return '<div class="detail-wrap">' +
       '<div class="card detail-card reveal">' +
+        projectImage(p) +
         '<span class="project-num">#' + String(p.id).padStart(2, '0') + ' · ' + esc(p.category) + '</span>' +
         '<h1 class="detail-title">' + esc(p.title) + '</h1>' +
         '<div class="project-tags">' + projectTags(p) + '</div>' +
@@ -682,7 +709,11 @@
             '<input type="file" name="file" required />' +
             '<b>Click to choose project file</b><br />Any file type, up to 100 MB. Members download this after access is unlocked.' +
           '</div>' +
-          '<button class="btn btn-primary btn-block" style="margin-top:1.5rem" type="submit">Upload project</button>' +
+          '<div class="field" style="margin-top:1rem"><label>Project image (optional — card pe dikhegi)</label>' +
+            '<input type="file" name="image" accept="image/*" style="font-size:.8rem" />' +
+          '</div>' +
+          '<div class="upload-progress" id="uploadProgress"><div class="upload-track"><div class="upload-bar" id="uploadBar"></div></div><span id="uploadPct">0%</span></div>' +
+          '<button class="btn btn-primary btn-block" style="margin-top:1rem" type="submit">Upload project</button>' +
         '</form>' +
         '<div><div class="admin-list" id="adminProjects">' + adminProjectsList() + '</div></div>' +
       '</div>';
@@ -1164,13 +1195,21 @@
         var old = btn.innerHTML;
         btn.disabled = true;
         btn.textContent = 'Uploading...';
-        api('/api/admin/projects', { method: 'POST', body: new FormData(f) }).then(function () {
+        var barWrap = $('#uploadProgress'), bar = $('#uploadBar'), pct = $('#uploadPct');
+        if (barWrap) barWrap.style.display = 'flex';
+        uploadProject(new FormData(f), function (p) {
+          if (bar) bar.style.width = p + '%';
+          if (pct) pct.textContent = p + '%';
+        }).then(function () {
           toast('Project uploaded!', 'ok');
           return api('/api/projects').then(function (rows) { state.projects = rows; });
         }).then(function () {
           var listEl = $('#adminProjects');
           if (listEl) listEl.innerHTML = adminProjectsList();
           f.reset();
+          if (bar) bar.style.width = '0%';
+          if (pct) pct.textContent = '0%';
+          if (barWrap) barWrap.style.display = 'none';
         }).catch(function (err) { toast(err.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
       }
