@@ -805,7 +805,9 @@
 
   function loadAdminOrders() {
     api('/api/admin/orders').then(function (rows) {
-      $('#adminOrders').innerHTML = rows.length ? rows.map(function (o) {
+      var el = $('#adminOrders');
+      if (!el) return;
+      el.innerHTML = rows.length ? rows.map(function (o) {
         var statusHtml = '';
         if (o.status === 'verify') {
           statusHtml = '<span class="tag tag-violet" title="UTR: ' + esc(o.payment_id || '') + '">verify — UTR: ' + esc(o.payment_id || '') + '</span>' +
@@ -839,7 +841,9 @@
 
   function loadAdminMembers() {
     api('/api/admin/members').then(function (rows) {
-      $('#adminMembers').innerHTML = rows.length ? rows.map(function (u) {
+      var el = $('#adminMembers');
+      if (!el) return;
+      el.innerHTML = rows.length ? rows.map(function (u) {
         return '<tr><td><b>#' + u.id + '</b></td><td><b>' + esc(u.name) + '</b></td><td>' + esc(u.email) + '</td><td style="white-space:nowrap">' + fmtDate(u.created_at) + '</td></tr>';
       }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--dim)">No members yet</td></tr>';
     }).catch(function (e) { toast(e.message, 'err'); });
@@ -1135,18 +1139,18 @@
       if (f.id === 'loginForm') {
         e.preventDefault();
         var errEl = $('#formError');
-        errEl.classList.remove('show');
+        if (errEl) errEl.classList.remove('show');
         api('/api/login', { method: 'POST', body: { email: f.email.value, password: f.password.value } }).then(function (d) {
           state.user = d.user;
           toast('Welcome back, ' + d.user.name + '!', 'ok');
           render();
           location.hash = '#/';
-        }).catch(function (err) { errEl.textContent = err.message; errEl.classList.add('show'); });
+        }).catch(function (err) { if (errEl) { errEl.textContent = err.message; errEl.classList.add('show'); } else toast(err.message, 'err'); });
       }
       if (f.id === 'registerForm') {
         e.preventDefault();
         var errEl2 = $('#formError');
-        errEl2.classList.remove('show');
+        if (errEl2) errEl2.classList.remove('show');
         api('/api/register', { method: 'POST', body: { name: f.name.value, email: f.email.value, password: f.password.value } }).then(function (d) {
           state.user = d.user;
           toast('Account created — welcome!', 'ok');
@@ -1164,7 +1168,8 @@
           toast('Project uploaded!', 'ok');
           return api('/api/projects').then(function (rows) { state.projects = rows; });
         }).then(function () {
-          $('#adminProjects').innerHTML = adminProjectsList();
+          var listEl = $('#adminProjects');
+          if (listEl) listEl.innerHTML = adminProjectsList();
           f.reset();
         }).catch(function (err) { toast(err.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
