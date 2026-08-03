@@ -108,7 +108,8 @@ const DEFAULT_SETTINGS = {
   instagram: 'https://instagram.com/',
   hero_words: '["full-stack developer","project creator","chai enthusiast"]',
   upi_id: '',
-  upi_name: 'Ayush'
+  upi_name: 'Ayush',
+  upi_qr: ''
 };
 
 async function seedDefaults() {
@@ -500,10 +501,10 @@ app.post('/api/admin/messages', requireAdmin, h(async (req, res) => {
 }));
 
 app.put('/api/admin/settings', requireAdmin, h(async (req, res) => {
-  const allowed = ['site_name', 'tagline', 'bio', 'email', 'github', 'linkedin', 'x', 'instagram', 'hero_words', 'upi_id', 'upi_name'];
+  const allowed = ['site_name', 'tagline', 'bio', 'email', 'github', 'linkedin', 'x', 'instagram', 'hero_words', 'upi_id', 'upi_name', 'upi_qr'];
   for (const key of allowed) {
     if (typeof req.body[key] === 'string' || Array.isArray(req.body[key])) {
-      const value = Array.isArray(req.body[key]) ? JSON.stringify(req.body[key]) : req.body[key].slice(0, 3000);
+      const value = Array.isArray(req.body[key]) ? JSON.stringify(req.body[key]) : req.body[key].slice(0, key === 'upi_qr' ? 1000000 : 3000);
       await pool.query(
         'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
         [key, value]

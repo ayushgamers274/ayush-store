@@ -724,6 +724,11 @@
         '<p style="color:var(--muted);font-size:.82rem;line-height:1.6;margin-bottom:1rem">Members pay to your UPI ID from any UPI app, enter the transaction UTR, and you approve it in Orders to unlock their download. Find your UPI ID in the FamPay / Google Pay / PhonePe app.</p>' +
         '<div class="field"><label>Your UPI ID</label><input name="upi_id" placeholder="you@fam" maxlength="80" /></div>' +
         '<div class="field"><label>Name shown on QR</label><input name="upi_name" placeholder="Ayush" maxlength="60" /></div>' +
+        '<div class="field"><label>Your QR code image (optional — auto QR ban jata hai UPI ID se, par apna custom QR laga sakte ho)</label>' +
+          '<input type="file" id="upiQrFile" accept="image/*" style="font-size:.8rem" />' +
+          '<div id="upiQrPrev" style="margin-top:.6rem"></div>' +
+          '<button type="button" class="btn btn-outline btn-sm" id="upiQrClear" style="margin-top:.6rem">Remove QR image</button>' +
+        '</div>' +
         '<button class="btn btn-primary" style="margin-top:1.5rem" type="submit">Save UPI details</button>' +
       '</form>' +
       '</div>';
@@ -775,8 +780,18 @@
         if (!form) return;
         form.elements.upi_id.value = s.upi_id || '';
         form.elements.upi_name.value = s.upi_name || '';
+        state.upyQr = s.upi_qr || '';
+        renderQrPreview();
       }).catch(function () {});
     });
+  }
+
+  function renderQrPreview() {
+    var prev = $('#upiQrPrev');
+    if (!prev) return;
+    prev.innerHTML = state.upyQr
+      ? '<img src="' + state.upyQr + '" alt="QR preview" style="width:9rem;height:9rem;border-radius:.6rem;border:1px solid var(--border);background:#fff;padding:.3rem" />'
+      : '<span style="font-size:.75rem;color:var(--dim)">No custom QR set — auto QR from UPI ID is used.</span>';
   }
 
   function loadAdminOrders() {
@@ -884,7 +899,9 @@
       '<h3>Pay ' + fmtPrice(o.amount) + '</h3>' +
       '<p>Buying <b>' + esc(o.projectTitle) + '</b>. Pay via <b>FamPay</b> or any UPI app to:</p>' +
       '<div style="margin:1rem auto;text-align:center">' +
-        '<img src="' + qrUrl(o) + '" alt="UPI QR" style="width:11rem;height:11rem;border-radius:1rem;border:1px solid var(--border);background:#fff;padding:.5rem" onerror="this.style.display=\'none\'" />' +
+        (state.settings && state.settings.upi_qr
+          ? '<img src="' + state.settings.upi_qr + '" alt="UPI QR" style="width:11rem;height:11rem;border-radius:1rem;border:1px solid var(--border);background:#fff;padding:.5rem" onerror="this.style.display=\'none\'" />'
+          : '<img src="' + qrUrl(o) + '" alt="UPI QR" style="width:11rem;height:11rem;border-radius:1rem;border:1px solid var(--border);background:#fff;padding:.5rem" onerror="this.style.display=\'none\'" />') +
         '<p style="font-family:var(--font-mono);font-size:1.1rem;font-weight:600;margin:.8rem 0 .2rem">' + esc(o.upi.id) + '</p>' +
         '<p style="font-size:.72rem;color:var(--dim)">Amount: ' + fmtPrice(o.amount) + ' · Order #' + o.orderId + '</p>' +
         '<a class="btn btn-primary" style="margin-top:.9rem" href="' + upiLink(o) + '" target="_blank" rel="noopener">Open UPI app</a>' +
@@ -1015,6 +1032,18 @@
     $('#chatClose').addEventListener('click', closeChat);
     $('#chatSend').addEventListener('click', sendChat);
     $('#chatText').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendChat(); });
+    $('#chatPanel').addEventListener('click', function (e) {
+      var chip = e.target.closest('.chat-chip');
+      if (!chip) return;
+      var q = chip.getAttribute('data-chat-q');
+      if (q === 'Login') {
+        closeChat();
+        location.hash = state.user ? '#/account' : '#/login';
+        return;
+      }
+      $('#chatText').value = q;
+      sendChat();
+    });
   });
 
   /* ---------- global events ---------- */
@@ -1153,12 +1182,34 @@
         e.preventDefault();
         var pdata = {
           upi_id: f.upi_id.value.trim(),
-          upi_name: f.upi_name.value.trim()
+          upi_name: f.upi_name.value.trim(),
+          upi_qr: state.upyQr || ''
         };
         api('/api/admin/settings', { method: 'PUT', body: pdata }).then(function () {
           toast('UPI details saved — payments ready', 'ok');
+          return api('/api/settings').then(function (s) { state.settings = s; });
         }).catch(function (e) { toast(e.message, 'err'); });
       }
+    });
+
+    safe(function () {
+      var qrFile = $('#upiQrFile'), qrClear = $('#upiQrClear');
+      if (qrFile) qrFile.addEventListener('change', function () {
+        var file = qrFile.files && qrFile.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          state.upyQr = String(reader.result);
+          renderQrPreview();
+          toast('QR image loaded — Save UPI details pe click karo', 'ok');
+        };
+        reader.readAsDataURL(file);
+      });
+      if (qrClear) qrClear.addEventListener('click', function () {
+        state.upyQr = '';
+        renderQrPreview();
+        toast('QR removed — Save UPI details pe click karo', '');
+      });
     });
 
     document.addEventListener('input', function (e) {
