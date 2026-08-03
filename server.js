@@ -110,9 +110,10 @@ function getSettings(includeSecrets) {
 {
   const admin = db.prepare("SELECT id FROM users WHERE role = 'admin'").get();
   if (!admin) {
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')").run('Ayush', 'admin@ayush.dev', hash);
-    console.log('  Admin account created: admin@ayush.dev / admin123');
+    const email = String(process.env.ADMIN_EMAIL || 'admin@ayush.dev').trim().toLowerCase();
+    const pass = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
+    db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')").run('Ayush', email, bcrypt.hashSync(pass, 10));
+    console.log(`  Admin created: ${email} / ${process.env.ADMIN_PASSWORD ? '(from env)' : pass}`);
   }
 }
 const app = express();
@@ -495,6 +496,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  Ayush project store running:');
   console.log(`  -> http://localhost:${PORT}`);
   console.log(`  -> Admin panel: http://localhost:${PORT}/#/admin`);
-  console.log('  Admin login: admin@ayush.dev / admin123');
   console.log('');
 });
