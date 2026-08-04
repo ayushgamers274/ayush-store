@@ -160,6 +160,9 @@ html.js .cursor-dot, html.js .cursor-ring { opacity: 1; }
 .mobile-menu a:hover { color: var(--text); background: var(--card-hover); }
 .mobile-menu.show { display: flex; }
 
+.scene-3d { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+.scene-3d canvas { display: block; }
+
 .progress { position: fixed; top: 0; left: 0; height: 2px; width: 0%; z-index: 600; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 10px var(--accent); }
 
 .btn {
@@ -177,6 +180,7 @@ html.js .cursor-dot, html.js .cursor-ring { opacity: 1; }
   transition: transform .3s, box-shadow .3s, border-color .3s, background-color .3s, color .3s;
 }
 .btn:hover { transform: translateY(-3px); }
+.btn:active { transform: translateY(1px) scale(.97); }
 .btn:disabled { opacity: .55; pointer-events: none; }
 .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--bg); box-shadow: 0 8px 30px -8px rgba(255, 255, 255, .25); }
 .btn-primary:hover { box-shadow: 0 14px 40px -10px rgba(255, 255, 255, .35); }

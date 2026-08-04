@@ -312,7 +312,7 @@
       card.addEventListener('mousemove', function (e) {
         var r = card.getBoundingClientRect();
         var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-        card.style.transform = 'perspective(900px) rotateX(' + ((0.5 - py) * 6) + 'deg) rotateY(' + ((px - 0.5) * 6) + 'deg)';
+        card.style.transform = 'perspective(1000px) rotateX(' + ((0.5 - py) * 10) + 'deg) rotateY(' + ((px - 0.5) * 10) + 'deg) scale(1.02)';
         card.style.setProperty('--mx', (px * 100) + '%');
         card.style.setProperty('--my', (py * 100) + '%');
       });
