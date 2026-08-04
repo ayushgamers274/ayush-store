@@ -320,6 +320,23 @@
     });
   }
 
+  function initHero3d() {
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    window.addEventListener('mousemove', function (e) {
+      var el = $('#home .hero-name');
+      if (!el || parseHash().name !== 'home') return;
+      var r = el.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      el.style.transform = 'perspective(700px) rotateX(' + ((0.5 - py) * 8) + 'deg) rotateY(' + ((px - 0.5) * 16) + 'deg)';
+    });
+    window.addEventListener('mouseout', function (e) {
+      if (!e.relatedTarget) {
+        var el = $('#home .hero-name');
+        if (el) el.style.transform = '';
+      }
+    });
+  }
+
   /* ---------- data ---------- */
 
   function loadData() {
@@ -1422,6 +1439,7 @@
   /* ---------- boot ---------- */
 
   document.getElementById('year').textContent = new Date().getFullYear();
+  initHero3d();
 
   var lastPaidCount = -1;
   setInterval(function () {

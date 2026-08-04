@@ -125,10 +125,17 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  var t = 0, running = true;
+  var t = 0, running = true, visible = true;
   document.addEventListener('visibilitychange', function () { running = !document.hidden; });
+  function syncVisibility() {
+    var home = location.hash === '' || location.hash === '#' || location.hash === '#/';
+    visible = home;
+    container.style.opacity = home ? '1' : '0';
+  }
+  window.addEventListener('hashchange', syncVisibility);
+  syncVisibility();
   function tick() {
-    if (!running) { requestAnimationFrame(tick); return; }
+    if (!running || !visible) { requestAnimationFrame(tick); return; }
     t += 0.005;
     ring.rotation.z += 0.002;
     orbiters.forEach(function (o) {
