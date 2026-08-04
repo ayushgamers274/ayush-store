@@ -104,7 +104,7 @@ const DEFAULT_SETTINGS = {
   bio: 'I build fast, clean and reliable web products. Browse my projects, download the free ones, or buy premium ones with UPI — and say hi in the chat.',
   email: 'ayush@example.com',
   github: 'https://github.com/',
-  linkedin: 'https://linkedin.com/',
+  discord: 'https://discord.gg/',
   x: 'https://x.com/',
   instagram: 'https://instagram.com/',
   hero_words: '["full-stack developer","project creator","chai enthusiast"]',
@@ -532,7 +532,7 @@ app.post('/api/admin/messages', requireAdmin, h(async (req, res) => {
 }));
 
 app.put('/api/admin/settings', requireAdmin, h(async (req, res) => {
-  const allowed = ['site_name', 'tagline', 'bio', 'email', 'github', 'linkedin', 'x', 'instagram', 'hero_words', 'upi_id', 'upi_name', 'upi_qr'];
+  const allowed = ['site_name', 'tagline', 'bio', 'email', 'github', 'discord', 'x', 'instagram', 'hero_words', 'upi_id', 'upi_name', 'upi_qr'];
   for (const key of allowed) {
     if (typeof req.body[key] === 'string' || Array.isArray(req.body[key])) {
       const value = Array.isArray(req.body[key]) ? JSON.stringify(req.body[key]) : req.body[key].slice(0, key === 'upi_qr' ? 1000000 : 3000);

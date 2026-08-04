@@ -358,13 +358,14 @@
   var SOCIAL_SVG = {
     github: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.5v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.3 4.9 18.3 5.2 18.3 5.2c.6 1.6.2 2.8.1 3.1.7.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.6.8.5A11.5 11.5 0 0 0 23.5 12C23.5 5.7 18.3.5 12 .5z"/></svg>',
     linkedin: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M20.4 20.4h-3.5v-5.6c0-1.3 0-3-1.9-3s-2.1 1.4-2.1 2.9v5.7H9.4V9h3.4v1.6h.1c.5-.9 1.6-1.9 3.4-1.9 3.6 0 4.2 2.4 4.2 5.4v6.3zM5.3 7.4a2 2 0 1 1 0-4.1 2 2 0 0 1 0 4.1zM7.1 20.4H3.6V9h3.5v11.4z"/></svg>',
+    discord: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.9 3l-.7 1.4a18.3 18.3 0 0 0-6.4 0L8.1 3a19.8 19.8 0 0 0-4.4 1.4C.9 8.6.3 12.7.6 16.7A19.9 19.9 0 0 0 7.3 20l1.2-2a12 12 0 0 1-2-1l.5-.4a14.3 14.3 0 0 0 10 0l.5.4a12 12 0 0 1-2 1l1.2 2a19.9 19.9 0 0 0 6.7-3.3c.4-4.6-.6-8.6-2.1-12.3zM8.6 14.2c-1 0-1.8-1-1.8-2.1s.8-2.1 1.8-2.1 1.8 1 1.8 2.1-.8 2.1-1.8 2.1zm6.8 0c-1 0-1.8-1-1.8-2.1s.8-2.1 1.8-2.1 1.8 1 1.8 2.1-.8 2.1-1.8 2.1z"/></svg>',
     x: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-6.4L6 22H2.9l7.4-8.5L2.5 2H9l4.5 5.9L18.9 2zm-1.1 18h1.7L7.2 3.7H5.4L17.8 20z"/></svg>',
     instagram: '<svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"></circle></svg>'
   };
 
   function socialLinks() {
     var s = state.settings, out = '';
-    var map = [['github', s.github], ['linkedin', s.linkedin], ['x', s.x], ['instagram', s.instagram]];
+    var map = [['github', s.github], ['discord', s.discord], ['x', s.x], ['instagram', s.instagram]];
     map.forEach(function (m) {
       if (m[1] && m[1].length > 1 && m[1] !== '#') {
         out += '<a class="social-link" href="' + esc(m[1]) + '" target="_blank" rel="noopener" aria-label="' + m[0] + '">' + SOCIAL_SVG[m[0]] + '</a>';
@@ -412,9 +413,9 @@
       : '';
   }
 
-  function projectCard(p, cls) {
+  function projectCard(p, cls, i) {
     var owned = state.user && state.owned.has(p.id);
-    return '<a class="card reveal' + (cls ? ' ' + cls : '') + '" href="#/project/' + p.id + '" data-tilt>' +
+    return '<a class="card reveal' + (cls ? ' ' + cls : '') + '" style="' + (typeof i === 'number' ? '--d:' + Math.min(i * .08, .72) + 's' : '') + '" href="#/project/' + p.id + '" data-tilt>' +
       projectImage(p) +
       '<div class="card-meta">' +
         '<span class="project-num">#' + String(p.id).padStart(2, '0') + ' · ' + esc(p.category) + '</span>' +
@@ -464,6 +465,7 @@
         '</div>' +
         '<div class="hero-visual reveal reveal-right" style="--d:.3s">' +
           '<div class="orbit-ring-2"></div><div class="orbit-ring"></div>' +
+          '<div class="sparkle sp-1"></div><div class="sparkle sp-2"></div><div class="sparkle sp-3"></div><div class="sparkle sp-4"></div><div class="sparkle sp-5"></div>' +
           '<div class="monogram">' + esc((s.site_name || 'A')[0].toUpperCase()) + '</div>' +
           '<div class="chip chip-1">&gt;_ <b>Discord Bots</b></div>' +
           '<div class="chip chip-2">&gt;_ <b>Node.js</b></div>' +
@@ -495,7 +497,7 @@
           '</div>' +
         '</div>' +
         (featured.length
-          ? '<div class="grid-3" style="margin-top:2.5rem">' + featured.map(function (p) { return projectCard(p); }).join('') + '</div>'
+          ? '<div class="grid-3" style="margin-top:2.5rem">' + featured.map(function (p, i) { return projectCard(p, null, i); }).join('') + '</div>'
           : '<div class="empty-state reveal" style="margin-top:2.5rem"><h3>Nothing here</h3><p>No projects match this filter yet.</p></div>') +
         '<div style="text-align:center;margin-top:2.5rem">' +
           '<a href="#/store" class="btn btn-outline">View all projects</a>' +
@@ -551,7 +553,7 @@
           '</div>' +
         '</div>' +
         (list.length
-          ? '<div class="grid-3" style="margin-top:2.5rem">' + list.map(function (p) { return projectCard(p); }).join('') + '</div>'
+          ? '<div class="grid-3" style="margin-top:2.5rem">' + list.map(function (p, i) { return projectCard(p, null, i); }).join('') + '</div>'
           : '<div class="empty-state reveal" style="margin-top:2.5rem"><h3>Nothing found</h3><p>Try a different search or filter.</p></div>') +
       '</div>' +
     '</section>';
@@ -774,7 +776,7 @@
         '</div>' +
         '<div class="form-row-2">' +
           '<div class="field"><label>GitHub URL</label><input name="github" value="' + esc(s.github) + '" maxlength="300" /></div>' +
-          '<div class="field"><label>LinkedIn URL</label><input name="linkedin" value="' + esc(s.linkedin) + '" maxlength="300" /></div>' +
+          '<div class="field"><label>Discord URL</label><input name="discord" value="' + esc(s.discord) + '" maxlength="300" /></div>' +
         '</div>' +
         '<div class="form-row-2">' +
           '<div class="field"><label>X (Twitter) URL</label><input name="x" value="' + esc(s.x) + '" maxlength="300" /></div>' +
@@ -972,7 +974,7 @@
         '<p style="font-family:var(--font-mono);font-size:1.1rem;font-weight:600;margin:.8rem 0 .2rem">' + esc(o.upi.id) + '</p>' +
         '<p style="font-size:.72rem;color:var(--dim)">Amount: ' + fmtPrice(o.amount) + ' · Order #' + o.orderId + '</p>' +
         '<div class="btn-row" style="justify-content:center;margin-top:.9rem;flex-wrap:wrap">' +
-          '<a class="btn btn-primary" href="' + upiLink(o) + '" target="_blank" rel="noopener">Open UPI app</a>' +
+          '<a class="btn btn-primary" href="' + upiLink(o) + '" rel="noopener">Open UPI app</a>' +
           '<button class="btn btn-outline" data-m-action="copyupi">Copy UPI ID</button>' +
         '</div>' +
         '<p style="font-size:.75rem;color:var(--dim);margin-top:.7rem">App nahi khul rahi (Instagram/iPhone me)? QR scan karo ya UPI ID copy karke kisi bhi UPI app me <b>' + fmtPrice(o.amount) + '</b> pay kar do — DM me bhi chalega.</p>' +
@@ -990,6 +992,8 @@
       if (utr.length < 4) { toast('Enter your UTR / transaction number first', 'err'); return; }
       verifyOrder(o.orderId, utr);
     });
+    var cancelBtn = $('#modalBox').querySelector('[data-m-action="cancel"]');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
     var copyBtn = $('#modalBox').querySelector('[data-m-action="copyupi"]');
     if (copyBtn) copyBtn.addEventListener('click', function () {
       var txt = o.upi.id;
@@ -1095,7 +1099,17 @@
     $('#chatBody').innerHTML = '<div class="msg-system">Chat with ' + esc(state.settings.site_name || 'Ayush') + ' — I reply instantly (auto bot) and Ayush jumps in too. Ask about projects, prices, payments, anything.</div>';
     var name = '';
     try { name = localStorage.getItem('chat_name') || ''; } catch (e) {}
-    $('#chatName').value = name;
+    var nameInput = $('#chatName');
+    var badge = $('#chatAs');
+    if (name) {
+      nameInput.style.display = 'none';
+      badge.textContent = 'Chatting as ' + name;
+      badge.style.display = 'block';
+    } else {
+      nameInput.style.display = 'block';
+      badge.style.display = 'none';
+      nameInput.focus();
+    }
     if (state.chatTimer) clearInterval(state.chatTimer);
     state.chatTimer = setInterval(function () {
       api('/api/messages?after=' + state.lastMsgId).then(function (rows) {
@@ -1115,9 +1129,13 @@
 
   function sendChat() {
     var text = $('#chatText').value.trim();
-    var name = $('#chatName').value.trim().slice(0, 40) || 'Guest';
+    var nameInput = $('#chatName');
+    var name = nameInput.value.trim().slice(0, 40) || 'Guest';
     if (!text) return;
     try { localStorage.setItem('chat_name', name); } catch (e) {}
+    var badge = $('#chatAs');
+    if (badge) { badge.textContent = 'Chatting as ' + name; badge.style.display = 'block'; }
+    if (nameInput) nameInput.style.display = 'none';
     $('#chatText').value = '';
     api('/api/messages', { method: 'POST', body: { name: name, text: text } }).then(function (m) {
       appendMsg(m);
@@ -1290,7 +1308,7 @@
           bio: f.bio.value,
           email: f.email.value,
           github: f.github.value,
-          linkedin: f.linkedin.value,
+          discord: f.discord.value,
           x: f.x.value,
           instagram: f.instagram.value,
           hero_words: f.hero_words.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean)
@@ -1346,7 +1364,7 @@
           });
           var grid = $('#app').querySelector('.grid-3');
           if (!grid) return;
-          grid.innerHTML = list.length ? list.map(function (p) { return projectCard(p); }).join('') : '<div class="empty-state" style="grid-column:1/-1"><h3>Nothing found</h3></div>';
+          grid.innerHTML = list.length ? list.map(function (p, i) { return projectCard(p, null, i); }).join('') : '<div class="empty-state" style="grid-column:1/-1"><h3>Nothing found</h3></div>';
           initReveals();
         }, 250);
       }
