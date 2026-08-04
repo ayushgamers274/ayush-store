@@ -1204,13 +1204,13 @@
         render();
       }
       if (act === 'email-me') {
-        e.preventDefault();
         var mail = (state.settings.email || '').trim();
-        if (!mail || mail.indexOf('@') < 1) { toast('Email set nahi hai — chat me message karo', 'err'); return; }
-        var subj = encodeURIComponent('Hey, I saw your projects');
-        var body = encodeURIComponent('Hi ' + (state.settings.site_name || '') + ',\n\n');
-        window.location.href = 'mailto:' + mail + '?subject=' + subj + '&body=' + body;
-        toast('Mail app open ho rahi hai...', '');
+        if (!mail || mail.indexOf('@') < 1) {
+          e.preventDefault();
+          toast('No email set yet — message me in the chat instead', 'err');
+        } else {
+          toast('Opening mail app...', '');
+        }
       }
       if (act === 'admin-tab') {
         state.adminTab = el.getAttribute('data-tab');
