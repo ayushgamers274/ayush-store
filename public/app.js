@@ -332,9 +332,12 @@
       if (el) {
         var r = el.getBoundingClientRect();
         var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        tx += (curX - cx - tx) * 0.1;
-        ty += (curY - cy - ty) * 0.1;
-        el.style.transform = 'perspective(700px) rotateX(' + (-ty * 0.09) + 'deg) rotateY(' + (tx * 0.09) + 'deg)';
+        tx += (curX - cx - tx) * 0.14;
+        ty += (curY - cy - ty) * 0.14;
+        var rx = Math.max(-22, Math.min(22, -ty * 0.11));
+        var ry = Math.max(-28, Math.min(28, tx * 0.11));
+        el.style.setProperty('transform', 'perspective(700px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)');
+        el.style.setProperty('transition', 'transform .06s linear, opacity .7s ease', 'important');
       }
       requestAnimationFrame(loop);
     })();

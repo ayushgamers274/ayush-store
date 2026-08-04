@@ -30,23 +30,6 @@
     return new THREE.CanvasTexture(c);
   }
 
-  var core = new THREE.Group();
-  core.position.z = -6;
-  scene.add(core);
-
-  var coreTex = null, ringTex = null;
-  function buildCore(accentHex, accent2Hex) {
-    if (coreTex) { coreTex.dispose(); ringTex.dispose(); }
-    coreTex = glowTexture('#' + ('00000' + accentHex.toString(16)).slice(-6), 'rgba(120,180,255,0.25)');
-    ringTex = glowTexture('#ffffff', 'rgba(160,140,255,0.18)');
-    var s1 = new THREE.Sprite(new THREE.SpriteMaterial({ map: coreTex, color: accentHex, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-    s1.scale.set(5.4, 5.4, 1);
-    var s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTex, color: accent2Hex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
-    s2.scale.set(8.5, 8.5, 1);
-    core.add(s1);
-    core.add(s2);
-  }
-
   var count = isMobile ? 160 : 350;
   var positions = new Float32Array(count * 3);
   for (var i = 0; i < count; i++) {
@@ -91,8 +74,10 @@
     starMat.color.setHex(light ? 0x7c87ad : 0xffffff);
     starMat.size = light ? 0.07 : 0.055;
     pl.color.setHex(accent);
-    while (core.children.length) core.remove(core.children[0]);
-    buildCore(accent, accent2);
+    shards.forEach(function (m, k) {
+      m.material.color.setHex(k % 2 ? accent2 : accent);
+      m.material.emissive.setHex(k % 2 ? accent2 : accent);
+    });
   }
   refreshColors();
   new MutationObserver(refreshColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
