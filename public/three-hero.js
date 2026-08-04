@@ -41,7 +41,7 @@
     ringTex = glowTexture('#ffffff', 'rgba(160,140,255,0.18)');
     var s1 = new THREE.Sprite(new THREE.SpriteMaterial({ map: coreTex, color: accentHex, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
     s1.scale.set(5.4, 5.4, 1);
-    var s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTex, color: accent2Hex, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    var s2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTex, color: accent2Hex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
     s2.scale.set(8.5, 8.5, 1);
     core.add(s1);
     core.add(s2);
@@ -49,15 +49,15 @@
 
   var ring = new THREE.Mesh(
     new THREE.RingGeometry(2.7, 2.72, 90),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   ring.rotation.x = Math.PI / 2.35;
   core.add(ring);
 
   var orbiters = [];
-  var orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
+  var orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
   for (var oi = 0; oi < 6; oi++) {
-    var orb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), orbMat);
+    var orb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), orbMat);
     orb.userData.angle = (oi / 6) * Math.PI * 2;
     orb.userData.speed = 0.4 + Math.random() * 0.35;
     orb.userData.radius = 2.9 + Math.random() * 0.5;
