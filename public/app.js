@@ -459,7 +459,9 @@
             '<a href="#/store" class="btn btn-primary">Browse projects' +
               '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>' +
             '</a>' +
-            '<a href="mailto:' + esc(s.email || '') + '" class="btn btn-outline">Email me</a>' +
+            '<a href="mailto:' + esc(s.email || '') + '?subject=' + encodeURIComponent('Hey, I saw your projects') + '" class="btn btn-outline" data-action="email-me">Email me' +
+              '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"></path></svg>' +
+            '</a>' +
           '</div>' +
           '<div class="hero-socials reveal" style="--d:.5s">' + socialLinks() + '</div>' +
         '</div>' +
@@ -1200,6 +1202,15 @@
       if (act === 'filter') {
         state.filters.type = el.getAttribute('data-type');
         render();
+      }
+      if (act === 'email-me') {
+        e.preventDefault();
+        var mail = (state.settings.email || '').trim();
+        if (!mail || mail.indexOf('@') < 1) { toast('Email set nahi hai — chat me message karo', 'err'); return; }
+        var subj = encodeURIComponent('Hey, I saw your projects');
+        var body = encodeURIComponent('Hi ' + (state.settings.site_name || '') + ',\n\n');
+        window.location.href = 'mailto:' + mail + '?subject=' + subj + '&body=' + body;
+        toast('Mail app open ho rahi hai...', '');
       }
       if (act === 'admin-tab') {
         state.adminTab = el.getAttribute('data-tab');
