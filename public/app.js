@@ -258,6 +258,9 @@
       account: viewAccount
     }[route.name];
     app.innerHTML = view ? view() : viewHome();
+    app.classList.remove('page-in');
+    void app.offsetWidth;
+    app.classList.add('page-in');
     renderNav();
     setActiveNav();
     initReveals();
@@ -727,7 +730,18 @@
         '<div><div class="admin-list" id="adminProjects">' + adminProjectsList() + '</div></div>' +
       '</div>';
     }
-    if (t === 'orders') return '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Project</th><th>Member</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="adminOrders"><tr><td colspan="6" style="text-align:center;color:var(--dim)">Loading...</td></tr></tbody></table></div>';
+    if (t === 'orders') return '<div class="card admin-form" style="margin-bottom:1rem">' +
+        '<h3 style="font-family:var(--font-display);font-weight:700;margin-bottom:.3rem">Unlock by email <span style="font-size:.7rem;color:var(--muted)">(DM payment ke liye)</span></h3>' +
+        '<p style="color:var(--muted);font-size:.8rem;margin-bottom:.8rem">Jab koi Instagram/DM me pay karta hai, uska gmail daalo + project chuno — bas ussi gmail ke account ke liye unlock ho jayega.</p>' +
+        '<div class="grid-2" style="align-items:end">' +
+          '<div class="field"><label>Member email (gmail)</label><input id="unlockEmail" type="email" placeholder="user@gmail.com" /></div>' +
+          '<div class="field"><label>Project</label><select id="unlockProject">' +
+            (state.projects && state.projects.length ? state.projects.map(function (p) { return '<option value="' + p.id + '">#' + p.id + ' — ' + esc(p.title) + ' (' + fmtPrice(p.price) + ')</option>'; }).join('') : '<option value="">No projects yet</option>') +
+          '</select></div>' +
+        '</div>' +
+        '<button class="btn btn-green btn-sm" style="margin-top:.8rem" data-action="unlock">Unlock access</button>' +
+      '</div>' +
+      '<div class="table-wrap"><table><thead><tr><th>ID</th><th>Project</th><th>Member</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="adminOrders"><tr><td colspan="6" style="text-align:center;color:var(--dim)">Loading...</td></tr></tbody></table></div>';
     if (t === 'messages') {
       return '<div class="grid-2">' +
         '<div class="card admin-form">' +
@@ -957,7 +971,11 @@
           : '<img src="' + qrUrl(o) + '" alt="UPI QR" style="width:11rem;height:11rem;border-radius:1rem;border:1px solid var(--border);background:#fff;padding:.5rem" onerror="this.style.display=\'none\'" />') +
         '<p style="font-family:var(--font-mono);font-size:1.1rem;font-weight:600;margin:.8rem 0 .2rem">' + esc(o.upi.id) + '</p>' +
         '<p style="font-size:.72rem;color:var(--dim)">Amount: ' + fmtPrice(o.amount) + ' · Order #' + o.orderId + '</p>' +
-        '<a class="btn btn-primary" style="margin-top:.9rem" href="' + upiLink(o) + '" target="_blank" rel="noopener">Open UPI app</a>' +
+        '<div class="btn-row" style="justify-content:center;margin-top:.9rem;flex-wrap:wrap">' +
+          '<a class="btn btn-primary" href="' + upiLink(o) + '" target="_blank" rel="noopener">Open UPI app</a>' +
+          '<button class="btn btn-outline" data-m-action="copyupi">Copy UPI ID</button>' +
+        '</div>' +
+        '<p style="font-size:.75rem;color:var(--dim);margin-top:.7rem">App nahi khul rahi (Instagram/iPhone me)? QR scan karo ya UPI ID copy karke kisi bhi UPI app me <b>' + fmtPrice(o.amount) + '</b> pay kar do — DM me bhi chalega.</p>' +
       '</div>' +
       '<p style="font-size:.82rem;margin-top:1rem">After paying, enter the <b>12-digit UTR / transaction number</b> from the UPI app. Ayush checks it and approves — your download unlocks.</p>' +
       '<div class="field" style="text-align:left"><label>UTR / transaction number</label>' +
@@ -972,13 +990,42 @@
       if (utr.length < 4) { toast('Enter your UTR / transaction number first', 'err'); return; }
       verifyOrder(o.orderId, utr);
     });
+    var copyBtn = $('#modalBox').querySelector('[data-m-action="copyupi"]');
+    if (copyBtn) copyBtn.addEventListener('click', function () {
+      var txt = o.upi.id;
+      (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () {
+        toast('UPI ID copied — kisi bhi UPI app me pay kar do', 'ok');
+      }).catch(function () {
+        var ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); toast('UPI ID copied — kisi bhi UPI app me pay kar do', 'ok'); } catch (e2) { toast('Copy nahi hua — UPI ID: ' + txt, 'err'); }
+        ta.remove();
+      });
+    });
+  }
+
+  function confetti(n) {
+    var colors = ['#ff5e7e', '#ffd166', '#06d6a0', '#4cc9f0', '#b388ff', '#ff9e00', '#ff7a59'];
+    n = n || 90;
+    for (var i = 0; i < n; i++) {
+      var d = document.createElement('div');
+      d.className = 'confetti';
+      var s = 6 + Math.random() * 8;
+      d.style.cssText = 'left:' + (Math.random() * 100) + 'vw;width:' + s + 'px;height:' + (s * (Math.random() > .5 ? .5 : 1.4)) + 'px;background:' + colors[Math.floor(Math.random() * colors.length)] +
+        ';animation-duration:' + (2.2 + Math.random() * 1.8) + 's;animation-delay:' + (Math.random() * .4) + 's;border-radius:' + (Math.random() > .5 ? '50%' : '2px') + ';';
+      (function (el) { setTimeout(function () { el.remove(); }, 5000); })(d);
+      document.body.appendChild(d);
+    }
   }
 
   function verifyOrder(orderId, utr) {
     return api('/api/orders/verify', { method: 'POST', body: { orderId: orderId, utr: utr } }).then(function (d) {
       closeModal();
-      if (d.status === 'paid') {
-        toast('Payment verified — project unlocked!', 'ok');
+      if (d.status === 'paid' || d.alreadyOwned) {
+        toast(d.alreadyOwned ? 'This project is already unlocked — enjoy!' : 'Payment verified — project unlocked!', 'ok');
+        confetti();
         return refreshOrders().then(render);
       }
       toast('Payment submitted — Ayush will check the UTR and approve', 'ok');
@@ -1159,6 +1206,15 @@
           { id: 'no', label: 'Cancel', cls: 'btn-outline' }
         ]);
       }
+      if (act === 'unlock') {
+        var email = $('#unlockEmail').value.trim();
+        var pid = $('#unlockProject').value;
+        if (!email || !pid) { toast('Email aur project dono chahiye', 'err'); return; }
+        api('/api/admin/unlock', { method: 'POST', body: { email: email, projectId: Number(pid) } }).then(function (d) {
+          toast(d.already ? 'Already unlocked — user ko access pehle se hai' : 'Unlocked! Member ko download access mil gaya', 'ok');
+          loadAdminOrders();
+        }).catch(function (e) { toast(e.message, 'err'); });
+      }
       if (act === 'del-project') {
         var id = el.getAttribute('data-id');
         var p = projectById(id);
@@ -1334,6 +1390,23 @@
   /* ---------- boot ---------- */
 
   document.getElementById('year').textContent = new Date().getFullYear();
+
+  var lastPaidCount = -1;
+  setInterval(function () {
+    if (!state.user) return;
+    var r = parseHash();
+    if (r.name !== 'account' && r.name !== 'project') return;
+    api('/api/me/orders').then(function (rows) {
+      var paid = rows.filter(function (o) { return o.status === 'paid'; }).length;
+      if (lastPaidCount !== -1 && paid > lastPaidCount) {
+        confetti(70);
+        toast('Naya project unlock ho gaya! Download ke liye My Account kholo', 'ok');
+      }
+      lastPaidCount = paid;
+      var fresh = new Set(rows.filter(function (o) { return o.status === 'paid'; }).map(function (o) { return o.project_id; }));
+      if (fresh.size > state.owned.size) { state.owned = fresh; render(); }
+    }).catch(function () {});
+  }, 25000);
 
   loadData().then(function () {
     render();

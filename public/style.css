@@ -519,3 +519,16 @@ td .tag { display: inline-block; font-family: var(--font-mono); font-size: .7rem
   .js .reveal { opacity: 1; transform: none; }
   .cursor-dot, .cursor-ring, .ripple { display: none; }
 }
+
+@keyframes page-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.page-in { animation: page-in .5s cubic-bezier(.22, 1, .36, 1); }
+
+.confetti { position: fixed; top: -1.5rem; z-index: 10000; pointer-events: none; animation: confetti-fall linear forwards; }
+@keyframes confetti-fall { to { transform: translateY(112vh) rotate(720deg); } }
+
+.card:hover .project-img { transform: scale(1.05); }
+.project-img { transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
+
+.logo-bounce { display: inline-block; transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+.nav-logo:hover .logo-bounce { transform: scale(1.12) rotate(-6deg); }
+.nav-logo:active .logo-bounce { transform: scale(.9); }

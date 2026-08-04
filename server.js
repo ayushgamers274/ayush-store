@@ -358,6 +358,25 @@ app.post('/api/orders/approve', requireAdmin, h(async (req, res) => {
   res.json({ ok: true, status: approve ? 'paid' : 'rejected' });
 }));
 
+app.post('/api/admin/unlock', requireAdmin, h(async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 254);
+  const projectId = Number(req.body.projectId);
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  if (!projectId) return res.status(400).json({ error: 'Choose a project' });
+  const proj = (await pool.query('SELECT id, title, price FROM projects WHERE id = $1', [projectId])).rows[0];
+  if (!proj) return res.status(404).json({ error: 'Project not found' });
+  const user = (await pool.query('SELECT id, name, email FROM users WHERE LOWER(email) = $1', [email])).rows[0];
+  if (!user) return res.status(404).json({ error: 'User not registered yet — wo pehle sign up kare (email: ' + email + ')' });
+  const existing = (await pool.query('SELECT id, status FROM orders WHERE user_id = $1 AND project_id = $2 ORDER BY id DESC LIMIT 1', [user.id, projectId])).rows[0];
+  if (existing && existing.status === 'paid') return res.json({ ok: true, already: true, orderId: existing.id });
+  if (existing && existing.status === 'verify') {
+    await pool.query("UPDATE orders SET status = 'paid' WHERE id = $1", [existing.id]);
+    return res.json({ ok: true, orderId: existing.id, upgraded: true });
+  }
+  const inserted = await pool.query("INSERT INTO orders (project_id, user_id, amount, currency, status, payment_id) VALUES ($1, $2, $3, 'INR', 'paid', 'manual') RETURNING id", [projectId, user.id, proj.price]);
+  res.json({ ok: true, orderId: Number(inserted.rows[0].id), created: true });
+}));
+
 /* ---------------- chat ---------------- */
 
 function projectLine(p) {
