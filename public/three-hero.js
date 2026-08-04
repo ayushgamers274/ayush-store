@@ -47,24 +47,6 @@
     core.add(s2);
   }
 
-  var ring = new THREE.Mesh(
-    new THREE.RingGeometry(2.7, 2.72, 90),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.07, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  ring.rotation.x = Math.PI / 2.35;
-  core.add(ring);
-
-  var orbiters = [];
-  var orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
-  for (var oi = 0; oi < 6; oi++) {
-    var orb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), orbMat);
-    orb.userData.angle = (oi / 6) * Math.PI * 2;
-    orb.userData.speed = 0.4 + Math.random() * 0.35;
-    orb.userData.radius = 2.9 + Math.random() * 0.5;
-    core.add(orb);
-    orbiters.push(orb);
-  }
-
   var count = isMobile ? 160 : 350;
   var positions = new Float32Array(count * 3);
   for (var i = 0; i < count; i++) {
@@ -108,13 +90,9 @@
     var light = document.documentElement.getAttribute('data-theme') === 'light';
     starMat.color.setHex(light ? 0x7c87ad : 0xffffff);
     starMat.size = light ? 0.07 : 0.055;
-    ring.material.color.setHex(accent);
-    orbMat.color.setHex(accent2);
     pl.color.setHex(accent);
     while (core.children.length) core.remove(core.children[0]);
     buildCore(accent, accent2);
-    core.add(ring);
-    orbiters.forEach(function (o) { core.add(o); });
   }
   refreshColors();
   new MutationObserver(refreshColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -137,13 +115,6 @@
   function tick() {
     if (!running || !visible) { requestAnimationFrame(tick); return; }
     t += 0.005;
-    ring.rotation.z += 0.002;
-    orbiters.forEach(function (o) {
-      o.userData.angle += 0.008 * o.userData.speed;
-      o.position.x = Math.cos(o.userData.angle) * o.userData.radius;
-      o.position.y = Math.sin(o.userData.angle) * o.userData.radius * 0.35;
-      o.position.z = Math.sin(o.userData.angle) * o.userData.radius * 0.9;
-    });
     starField.rotation.y = t * 0.08;
     shards.forEach(function (m) {
       m.rotation.x += 0.008;

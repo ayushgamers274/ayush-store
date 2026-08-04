@@ -322,19 +322,22 @@
 
   function initHero3d() {
     if (window.matchMedia('(pointer: coarse)').matches) return;
+    var tx = 0, ty = 0, curX = 0, curY = 0;
     window.addEventListener('mousemove', function (e) {
+      curX = e.clientX;
+      curY = e.clientY;
+    }, { passive: true });
+    (function loop() {
       var el = $('#home .hero-name');
-      if (!el || parseHash().name !== 'home') return;
-      var r = el.getBoundingClientRect();
-      var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-      el.style.transform = 'perspective(700px) rotateX(' + ((0.5 - py) * 8) + 'deg) rotateY(' + ((px - 0.5) * 16) + 'deg)';
-    });
-    window.addEventListener('mouseout', function (e) {
-      if (!e.relatedTarget) {
-        var el = $('#home .hero-name');
-        if (el) el.style.transform = '';
+      if (el) {
+        var r = el.getBoundingClientRect();
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        tx += (curX - cx - tx) * 0.1;
+        ty += (curY - cy - ty) * 0.1;
+        el.style.transform = 'perspective(700px) rotateX(' + (-ty * 0.09) + 'deg) rotateY(' + (tx * 0.09) + 'deg)';
       }
-    });
+      requestAnimationFrame(loop);
+    })();
   }
 
   /* ---------- data ---------- */
