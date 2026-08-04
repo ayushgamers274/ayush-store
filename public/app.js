@@ -1026,6 +1026,24 @@
     }
   }
 
+  function openMailModal() {
+    var mail = (state.settings.email || '').trim();
+    if (!mail || mail.indexOf('@') < 1) { toast('No email set yet — message me in the chat instead', 'err'); return; }
+    var subj = encodeURIComponent('Hey, I saw your projects');
+    var body = encodeURIComponent('Hi ' + (state.settings.site_name || '') + ',\n\n');
+    var gmail = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(mail) + '&su=' + subj + '&body=' + body;
+    var outlook = 'https://outlook.live.com/mail/0/deeplink/compose?to=' + encodeURIComponent(mail) + '&subject=' + subj + '&body=' + body;
+    showModal('info', 'Email me', 'Pick where to compose the email:', [
+      { id: 'gmail', label: 'Open in Gmail', cls: 'btn-primary', onClick: function () { window.open(gmail, '_blank', 'noopener'); } },
+      { id: 'outlook', label: 'Open in Outlook', cls: 'btn-outline', onClick: function () { window.open(outlook, '_blank', 'noopener'); } },
+      { id: 'copy', label: 'Copy email address', cls: 'btn-outline', onClick: function () {
+        (navigator.clipboard ? navigator.clipboard.writeText(mail) : Promise.reject()).then(function () {
+          toast('Email copied: ' + mail, 'ok');
+        }).catch(function () { toast('Email: ' + mail, ''); });
+      } }
+    ]);
+  }
+
   function verifyOrder(orderId, utr) {
     return api('/api/orders/verify', { method: 'POST', body: { orderId: orderId, utr: utr } }).then(function (d) {
       closeModal();
@@ -1204,13 +1222,8 @@
         render();
       }
       if (act === 'email-me') {
-        var mail = (state.settings.email || '').trim();
-        if (!mail || mail.indexOf('@') < 1) {
-          e.preventDefault();
-          toast('No email set yet — message me in the chat instead', 'err');
-        } else {
-          toast('Opening mail app...', '');
-        }
+        e.preventDefault();
+        openMailModal();
       }
       if (act === 'admin-tab') {
         state.adminTab = el.getAttribute('data-tab');
