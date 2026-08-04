@@ -49,13 +49,13 @@
 
   var ring = new THREE.Mesh(
     new THREE.RingGeometry(2.7, 2.72, 90),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   ring.rotation.x = Math.PI / 2.35;
   core.add(ring);
 
   var orbiters = [];
-  var orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+  var orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
   for (var oi = 0; oi < 6; oi++) {
     var orb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), orbMat);
     orb.userData.angle = (oi / 6) * Math.PI * 2;
