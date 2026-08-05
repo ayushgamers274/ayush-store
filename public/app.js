@@ -201,7 +201,8 @@
 
   function renderNav() {
     var links = '<a href="#/" class="nav-link" data-nav="/">Home</a>' +
-      '<a href="#/store" class="nav-link" data-nav="/store">Store</a>';
+      '<a href="#/store" class="nav-link" data-nav="/store">Store</a>' +
+      '<a href="#/how-it-works" class="nav-link" data-nav="/how-it-works">How it works</a>';
     $('#navLinks').innerHTML = links;
     var auth = '';
     if (state.user) {
@@ -215,7 +216,7 @@
         '<a href="#/register" class="chip-link" data-nav="/register">Sign up</a>';
     }
     $('#navAuth').innerHTML = auth;
-    var m = '<a href="#/">Home</a><a href="#/store">Store</a>';
+    var m = '<a href="#/">Home</a><a href="#/store">Store</a><a href="#/how-it-works">How it works</a>';
     if (state.user) {
       m += '<a href="#/account">My account</a>';
       if (state.user.role === 'admin') m += '<a href="#/admin">Admin</a>';
@@ -236,7 +237,7 @@
 
   /* ---------- router ---------- */
 
-  var routes = { '/': 'home', '/store': 'store', '/login': 'login', '/register': 'register', '/admin': 'admin', '/account': 'account' };
+  var routes = { '/': 'home', '/store': 'store', '/how-it-works': 'howItWorks', '/login': 'login', '/register': 'register', '/admin': 'admin', '/account': 'account' };
   function parseHash() {
     var h = location.hash.replace(/^#/, '') || '/';
     var parts = h.split('/').filter(Boolean);
@@ -251,6 +252,7 @@
     var view = {
       home: viewHome,
       store: viewStore,
+      howItWorks: viewHowItWorks,
       project: function () { return viewProject(route.id); },
       login: viewLogin,
       register: viewRegister,
@@ -532,6 +534,10 @@
           '<div class="card reveal reveal-d1" style="--d:.1s"><div class="stat-num" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;color:var(--green)">' + freeCount + '</div><p style="color:var(--muted);font-size:.8rem;margin-top:.3rem">free downloads</p></div>' +
           '<div class="card reveal reveal-d1" style="--d:.2s"><div class="stat-num" style="font-family:var(--font-display);font-weight:800;font-size:2.2rem;color:var(--text)">' + paidCount + '</div><p style="color:var(--muted);font-size:.8rem;margin-top:.3rem">premium projects</p></div>' +
         '</div>' +
+        '<div class="card reveal reveal-d1" style="--d:.3s;margin-top:2.5rem;padding:1.2rem 1.8rem;display:flex;align-items:center;justify-content:center;gap:.8rem;background:var(--accent-soft);border:1px dashed var(--border);border-radius:1.2rem;text-align:center">' +
+          '<span style="font-size:1.3rem">🛡️</span>' +
+          '<span style="font-size:.85rem;color:var(--text);font-weight:600">All scripts, Discord bots, and templates in our store are 100% Virus-Free & Safe to use.</span>' +
+        '</div>' +
       '</div>' +
     '</section>';
   }
@@ -550,6 +556,9 @@
           '<div class="section-tag">// store</div>' +
           '<h2 class="section-title">All <em>projects</em></h2>' +
           '<p class="section-sub">' + state.projects.length + ' projects · ' + state.projects.filter(function (p) { return p.price === 0; }).length + ' free · free ones download after login, paid ones unlock after UPI payment.</p>' +
+          '<div style="margin-top:1.2rem;display:inline-flex;align-items:center;gap:.5rem;padding:.4rem .9rem;border-radius:9999px;background:var(--accent-soft);border:1px solid var(--border);font-size:.78rem;font-weight:600;color:var(--text)">' +
+            '<span>🛡️ 100% Virus-Free Guarantee</span>' +
+          '</div>' +
         '</div>' +
         '<div class="quick-picks reveal">' +
           '<button class="quick-card" data-action="filter" data-type="free">' +
@@ -584,6 +593,71 @@
     '</section>';
   }
 
+  function viewHowItWorks() {
+    return '<section class="section" style="padding-top:8rem">' +
+      '<div class="container">' +
+        '<div class="reveal">' +
+          '<div class="section-tag">// guide</div>' +
+          '<h2 class="section-title">How It <em>Works</em></h2>' +
+          '<p class="section-sub">Get access to premium & free developer resources in five simple steps.</p>' +
+        '</div>' +
+        '<div class="grid-3" style="margin-top:3rem">' +
+          '<div class="card reveal" style="padding:2rem;display:flex;flex-direction:column;gap:1rem">' +
+            '<div style="width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;font-size:1.2rem;font-family:var(--font-display);color:var(--text)">1</div>' +
+            '<div>' +
+              '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:.5rem">Browse Store</h3>' +
+              '<p style="color:var(--muted);font-size:.85rem;line-height:1.5">Explore our wide selection of source codes, scripts, Discord bots, APIs, and website templates.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card reveal reveal-d1" style="--d:.1s;padding:2rem;display:flex;flex-direction:column;gap:1rem">' +
+            '<div style="width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;font-size:1.2rem;font-family:var(--font-display);color:var(--text)">2</div>' +
+            '<div>' +
+              '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:.5rem">Create Account</h3>' +
+              '<p style="color:var(--muted);font-size:.85rem;line-height:1.5">Sign up in seconds. An account allows you to securely manage your downloads, keys, and order history.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card reveal reveal-d1" style="--d:.2s;padding:2rem;display:flex;flex-direction:column;gap:1rem">' +
+            '<div style="width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;font-size:1.2rem;font-family:var(--font-display);color:var(--text)">3</div>' +
+            '<div>' +
+              '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:.5rem">Instant Downloads</h3>' +
+              '<p style="color:var(--muted);font-size:.85rem;line-height:1.5">Download any project labeled "Free" instantly without any verification steps or payments.</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="grid-2" style="margin-top:2rem">' +
+          '<div class="card reveal reveal-d1" style="--d:.3s;padding:2rem;display:flex;flex-direction:column;gap:1rem">' +
+            '<div style="width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;font-size:1.2rem;font-family:var(--font-display);color:var(--text)">4</div>' +
+            '<div>' +
+              '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:.5rem">Easy UPI Payments</h3>' +
+              '<p style="color:var(--muted);font-size:.85rem;line-height:1.5">For premium projects, click Buy and scan the UPI QR code. Submit the transaction reference number (UTR / Txn ID) to submit your payment.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card reveal reveal-d1" style="--d:.4s;padding:2rem;display:flex;flex-direction:column;gap:1rem">' +
+            '<div style="width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800;font-size:1.2rem;font-family:var(--font-display);color:var(--text)">5</div>' +
+            '<div>' +
+              '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin-bottom:.5rem">Instant Unlocking</h3>' +
+              '<p style="color:var(--muted);font-size:.85rem;line-height:1.5">The purchase gets approved shortly after verification, unlocking lifetime access to the files in your Account dashboard.</p>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card reveal reveal-d1" style="--d:.5s;margin-top:4rem;padding:2.5rem;border:1px dashed var(--border);background:var(--card);display:flex;align-items:center;gap:2rem;flex-wrap:wrap">' +
+          '<div style="width:4.5rem;height:4.5rem;border-radius:1rem;background:var(--accent-soft);display:grid;place-items:center;color:var(--text);flex-shrink:0">' +
+            '<svg style="width:2.2rem;height:2.2rem" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">' +
+              '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>' +
+            '</svg>' +
+          '</div>' +
+          '<div style="flex:1;min-width:18rem">' +
+            '<h3 style="font-family:var(--font-display);font-size:1.3rem;margin-bottom:.5rem;color:var(--text)">🛡️ 100% Virus-Free & Safe Guarantee</h3>' +
+            '<p style="color:var(--muted);font-size:.9rem;line-height:1.6">Security is our highest priority. All scripts, zip archives, bot source codes, and files uploaded to our servers are thoroughly scanned and validated to ensure they are <b>100% clean, virus-free, and safe</b> for your local machine and server deployment.</p>' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:center;margin-top:3rem">' +
+          '<a href="#/store" class="btn btn-primary">Go to Store</a>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
   function viewProject(id) {
     var p = projectById(id);
     if (!p) return '<div class="empty-state" style="padding-top:8rem"><h3>Project not found</h3><a class="btn btn-outline" href="#/store" style="margin-top:1rem">Back to store</a></div>';
@@ -611,6 +685,7 @@
           (p.size ? '<span class="mini">' + fmtSize(p.size) + '</span>' : '') +
           '<span class="mini">' + p.downloads + ' downloads</span>' +
           '<span class="mini">added ' + fmtDate(p.created_at) + '</span>' +
+          '<span class="mini" style="color:var(--text);font-weight:600">🛡️ Virus-Free</span>' +
           (owned && p.price > 0 ? '<span class="mini" style="color:var(--green)">✓ purchased</span>' : '') +
         '</div>' +
         '<div class="detail-actions">' + btn +
